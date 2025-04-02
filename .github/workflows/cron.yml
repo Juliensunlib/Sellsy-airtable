@@ -1,0 +1,29 @@
+name: Run API Every 5 Minutes
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Toutes les 5 minutes
+  workflow_dispatch:  # Permet l'exécution manuelle
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Run script
+        env:
+          SELLSY_CONSUMER_TOKEN: ${{ secrets.SELLSY_CONSUMER_TOKEN }}
+          SELLSY_CONSUMER_SECRET: ${{ secrets.SELLSY_CONSUMER_SECRET }}
+          SELLSY_USER_TOKEN: ${{ secrets.SELLSY_USER_TOKEN }}
+          SELLSY_USER_SECRET: ${{ secrets.SELLSY_USER_SECRET }}
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+        run: python main.py
