@@ -1,21 +1,10 @@
+# main.py
 import time
 import json
-import sys
 from datetime import datetime
-
-# Vérification de l'installation du module sellsy-api
-try:
-    import sellsy_api
-except ImportError:
-    print("Le module sellsy-api n'est pas installé.")
-    sys.exit(1)
-
 from sellsy.client import Client as SellsyClient
 from pyairtable import Table
-from config import *  # Assurez-vous que ce fichier contient les bonnes informations d'API
-
-# Vérification de la version de Python
-print(f"Version de Python utilisée : {sys.version}")
+from config import *
 
 def connect_to_sellsy():
     """Établir la connexion avec l'API Sellsy"""
@@ -34,44 +23,28 @@ def connect_to_airtable():
     airtable = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
     return airtable
 
-def get_all_sellsy_emails(sellsy, days_back=30):
-    """Récupérer tous les emails depuis Sellsy avec gestion de la pagination"""
+def get_sellsy_emails(sellsy, days_back=30):
+    """Récupérer les emails envoyés depuis Sellsy"""
     print(f"Récupération des emails des {days_back} derniers jours...")
-    all_emails = []
-    page_num = 1
-
-    while True:
-        response = sellsy.api(
-            method="Mails.getList",
-            params={
-                "search": {
-                    "period": {
-                        "type": "range", 
-                        "start": int(time.time()) - (days_back * 86400),
-                        "end": int(time.time())
-                    },
-                    "box": "sent"  # Vous pouvez changer cette valeur pour filtrer les boîtes comme "sent", "inbox", etc.
-                },
-                "pagination": {
-                    "nbperpage": 100,
-                    "pagenum": page_num
+    
+    # Exemple d'appel API Sellsy pour récupérer les emails
+    # Adaptez cette partie selon la structure de l'API Sellsy
+    response = sellsy.api(
+        method="Document.getList",
+        params={
+            "doctype": "email",
+            "pagination": {"nbperpage": 100},
+            "search": {
+                "period": {
+                    "type": "range", 
+                    "start": int(time.time()) - (days_back * 86400),
+                    "end": int(time.time())
                 }
             }
-        )
-
-        # Vérification de la réponse
-        if 'response' not in response or 'result' not in response['response']:
-            print("Erreur: la structure de la réponse API est incorrecte.")
-            break
-        
-        emails = response['response'].get('result', [])
-        if not emails:
-            break  # Arrêter si aucune donnée n'est retournée
-
-        all_emails.extend(emails)
-        page_num += 1  # Passer à la page suivante
-
-    return all_emails
+        }
+    )
+    
+    return response.get("result", [])
 
 def format_email_for_airtable(email):
     """Formater les données d'email pour Airtable"""
@@ -92,8 +65,8 @@ def sync_emails_to_airtable():
         sellsy = connect_to_sellsy()
         airtable = connect_to_airtable()
         
-        # Récupération de tous les emails depuis Sellsy
-        emails = get_all_sellsy_emails(sellsy)
+        # Récupération des emails depuis Sellsy
+        emails = get_sellsy_emails(sellsy)
         print(f"Nombre d'emails récupérés: {len(emails)}")
         
         # Récupération des IDs d'emails déjà enregistrés dans Airtable
@@ -114,11 +87,11 @@ def sync_emails_to_airtable():
                 airtable.create(email_data)
                 new_count += 1
                 print(f"Email {email_id} ajouté à Airtable")
-                # Ajouter l'email_id à existing_ids pour ne pas dupliquer dans cette synchronisation
-                existing_ids.add(email_id)
-                time.sleep(1)  # Pause pour respecter la limite de l'API Airtable
         
         print(f"Synchronisation terminée. {new_count} nouveaux emails ajoutés à Airtable.")
         
     except Exception as e:
-        print(f"Erreur lors de la synchronisation: {e}")
+        print(f"Erreur lors de la synchronisation: {str(e)}")
+
+if __name__ == "__main__":
+    sync_emails_to_airtable()
