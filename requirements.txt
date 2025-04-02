@@ -1,6 +1,6 @@
-requests==2.30.0 
-python-dotenv==1.0.0 
-pandas==2.0.1 
-pyairtable==2.0.0 
-schedule==1.2.0 
-sellsy-api==0.1.0 
+requests==2.30.0
+python-dotenv==1.0.0
+pandas==2.0.1
+pyairtable==2.0.0
+schedule==1.2.0
+sellsy-api==0.0.2
