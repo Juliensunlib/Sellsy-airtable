@@ -2,8 +2,8 @@
 import time
 import json
 from datetime import datetime
-from sellsy.client import Client as SellsyClient
 from pyairtable import Table
+from sellsy_client import SellsyClient  # Import notre client personnalisé
 from config import *
 
 def connect_to_sellsy():
@@ -27,36 +27,75 @@ def get_sellsy_emails(sellsy, days_back=30):
     """Récupérer les emails envoyés depuis Sellsy"""
     print(f"Récupération des emails des {days_back} derniers jours...")
     
-    # Exemple d'appel API Sellsy pour récupérer les emails
-    # Adaptez cette partie selon la structure de l'API Sellsy
+    # Utilisation de la méthode Mails.getList selon la documentation Sellsy
+    current_time = int(time.time())
+    start_time = current_time - (days_back * 86400)
+    
     response = sellsy.api(
-        method="Document.getList",
+        method="Mails.getList",
         params={
-            "doctype": "email",
-            "pagination": {"nbperpage": 100},
             "search": {
+                "box": "outbox",  # Pour les emails envoyés
                 "period": {
-                    "type": "range", 
-                    "start": int(time.time()) - (days_back * 86400),
-                    "end": int(time.time())
+                    "type": "range",
+                    "start": start_time,
+                    "end": current_time
                 }
+            },
+            "pagination": {
+                "nbperpage": 100,
+                "pagenum": 1
             }
         }
     )
     
-    return response.get("result", [])
+    # Vérifier la structure de la réponse selon la documentation
+    if isinstance(response, dict) and "result" in response:
+        return response["result"]
+    elif isinstance(response, list):
+        return response
+    else:
+        print(f"Format de réponse inattendu: {response}")
+        return []
 
 def format_email_for_airtable(email):
     """Formater les données d'email pour Airtable"""
-    return {
-        "email_id": str(email.get("id")),
+    # Adapter le format selon les données réelles retournées par l'API
+    email_data = {
+        "email_id": str(email.get("id", "")),
         "sujet": email.get("subject", ""),
-        "destinataire": email.get("recipient", ""),
-        "date_envoi": datetime.fromtimestamp(int(email.get("date", 0))).isoformat(),
-        "contenu": email.get("content", ""),
+        "date_envoi": datetime.fromtimestamp(int(email.get("created_date", 0))).isoformat(),
         "statut": email.get("status", ""),
-        "client_id": str(email.get("clientid", ""))
     }
+    
+    # Traiter les destinataires (qui peuvent être un tableau ou une chaîne JSON)
+    recipients = email.get("recipients", "")
+    if isinstance(recipients, str):
+        try:
+            # Si c'est une chaîne JSON, essayez de la parser
+            recipients_data = json.loads(recipients.replace("'", "\""))
+            recipients_list = []
+            if isinstance(recipients_data, list):
+                for recipient in recipients_data:
+                    if isinstance(recipient, dict) and "email" in recipient:
+                        recipients_list.append(recipient["email"])
+            email_data["destinataire"] = ", ".join(recipients_list)
+        except:
+            email_data["destinataire"] = recipients
+    elif isinstance(recipients, list):
+        recipients_list = [r.get("email", "") for r in recipients if isinstance(r, dict)]
+        email_data["destinataire"] = ", ".join(recipients_list)
+    
+    # Traiter le contenu du message
+    message = email.get("message", "")
+    if message:
+        email_data["contenu"] = message
+    
+    # Ajouter l'ID client si disponible
+    if "linkedid" in email and email.get("linkedtype") == "third":
+        email_data["client_id"] = str(email.get("linkedid", ""))
+    
+    return email_data
 
 def sync_emails_to_airtable():
     """Synchroniser les emails de Sellsy vers Airtable"""
