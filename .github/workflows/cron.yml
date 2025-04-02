@@ -24,11 +24,6 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install sellsy-api  # Installation manuelle pour s'assurer de l'installation du package
 
-      - name: Vérification de l'installation de sellsy-api
-        run: |
-          python -c "import sellsy_api; print(sellsy_api.__version__)"
-        continue-on-error: true  # Continue même si cette étape échoue
-
       - name: Vérification de la version de Python
         run: python --version
 
