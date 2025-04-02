@@ -1,124 +1,46 @@
-import time
-import json
-import sys
-from datetime import datetime
+name: Run Sellsy-Airtable Integration
 
-# Vérification de l'installation du module sellsy-api
-try:
-    import sellsy_api
-except ImportError:
-    print("Le module sellsy-api n'est pas installé.")
-    sys.exit(1)
+on:
+  schedule:
+    - cron: '*/5 * * * *'  # Toutes les 5 minutes
+  workflow_dispatch:  # Permet l'exécution manuelle
 
-from sellsy_api.client import Client as SellsyClient
-from pyairtable import Table
-from config import *  # Assurez-vous que ce fichier contient les bonnes informations d'API
+jobs:
+  sync-data:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-# Vérification de la version de Python
-print(f"Version de Python utilisée : {sys.version}")
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'  # Mise en cache des dépendances pour accélérer
 
-def connect_to_sellsy():
-    """Établir la connexion avec l'API Sellsy"""
-    print("Connexion à l'API Sellsy...")
-    sellsy = SellsyClient(
-        consumer_token=SELLSY_CONSUMER_TOKEN,
-        consumer_secret=SELLSY_CONSUMER_SECRET,
-        user_token=SELLSY_USER_TOKEN,
-        user_secret=SELLSY_USER_SECRET
-    )
-    return sellsy
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install sellsy-api  # Installation manuelle pour s'assurer de l'installation du package
 
-def connect_to_airtable():
-    """Établir la connexion avec l'API Airtable"""
-    print("Connexion à l'API Airtable...")
-    airtable = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
-    return airtable
+      - name: Vérification de la version de Python
+        run: python --version
 
-def get_all_sellsy_emails(sellsy, days_back=30):
-    """Récupérer tous les emails depuis Sellsy avec gestion de la pagination"""
-    print(f"Récupération des emails des {days_back} derniers jours...")
-    all_emails = []
-    page_num = 1
+      - name: Vérification des modules installés
+        run: |
+          pip list
+        continue-on-error: true  # Continue même si cette étape échoue
 
-    while True:
-        response = sellsy.api(
-            method="Mails.getList",
-            params={
-                "search": {
-                    "period": {
-                        "type": "range",
-                        "start": int(time.time()) - (days_back * 86400),
-                        "end": int(time.time())
-                    },
-                    "box": "sent"  # Vous pouvez changer cette valeur pour filtrer les boîtes comme "sent", "inbox", etc.
-                },
-                "pagination": {
-                    "nbperpage": 100,
-                    "pagenum": page_num
-                }
-            }
-        )
+      - name: Run integration script
+        env:
+          SELLSY_CONSUMER_TOKEN: ${{ secrets.SELLSY_CONSUMER_TOKEN }}
+          SELLSY_CONSUMER_SECRET: ${{ secrets.SELLSY_CONSUMER_SECRET }}
+          SELLSY_USER_TOKEN: ${{ secrets.SELLSY_USER_TOKEN }}
+          SELLSY_USER_SECRET: ${{ secrets.SELLSY_USER_SECRET }}
+          AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+        run: python main.py
 
-        # Vérification de la réponse
-        if 'response' not in response or 'result' not in response['response']:
-            print("Erreur: la structure de la réponse API est incorrecte.")
-            break
-
-        emails = response['response'].get('result', [])
-        if not emails:
-            break  # Arrêter si aucune donnée n'est retournée
-
-        all_emails.extend(emails)
-        page_num += 1  # Passer à la page suivante
-
-    return all_emails
-
-def format_email_for_airtable(email):
-    """Formater les données d'email pour Airtable"""
-    return {
-        "email_id": str(email.get("id")),
-        "sujet": email.get("subject", ""),
-        "destinataire": email.get("recipient", ""),
-        "date_envoi": datetime.fromtimestamp(int(email.get("date", 0))).isoformat(),
-        "contenu": email.get("content", ""),
-        "statut": email.get("status", ""),
-        "client_id": str(email.get("clientid", ""))
-    }
-
-def sync_emails_to_airtable():
-    """Synchroniser les emails de Sellsy vers Airtable"""
-    try:
-        # Connexion aux APIs
-        sellsy = connect_to_sellsy()
-        airtable = connect_to_airtable()
-
-        # Récupération de tous les emails depuis Sellsy
-        emails = get_all_sellsy_emails(sellsy)
-        print(f"Nombre d'emails récupérés: {len(emails)}")
-
-        # Récupération des IDs d'emails déjà enregistrés dans Airtable
-        existing_records = airtable.all(fields=["email_id"])
-        existing_ids = {record["fields"].get("email_id") for record in existing_records if "email_id" in record["fields"]}
-
-        # Synchronisation des emails
-        new_count = 0
-        for email in emails:
-            email_id = str(email.get("id"))
-
-            # Vérifier si l'email existe déjà dans Airtable
-            if email_id not in existing_ids:
-                # Formater les données pour Airtable
-                email_data = format_email_for_airtable(email)
-
-                # Ajouter l'enregistrement dans Airtable
-                airtable.create(email_data)
-                new_count += 1
-                print(f"Email {email_id} ajouté à Airtable")
-                # Ajouter l'email_id à existing_ids pour ne pas dupliquer dans cette synchronisation
-                existing_ids.add(email_id)
-                time.sleep(1)  # Pause pour respecter la limite de l'API Airtable
-
-        print(f"Synchronisation terminée. {new_count} nouveaux emails ajoutés à Airtable.")
-
-    except Exception as e:
-        print(f"Erreur lors de la synchronisation: {e}")
+      - name: Finalisation
+        run: echo "Script terminé avec succès ✅"
