@@ -11,21 +11,24 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-      
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
           cache: 'pip'  # Mise en cache des dépendances pour accélérer
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt  # Installation des dépendances de requirements.txt
-      
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install sellsy-api  # Installation manuelle pour s'assurer de l'installation du package
+
       - name: Vérification des modules installés
-        run: pip list
-      
+        run: |
+          pip list
+        continue-on-error: true  # Continue même si cette étape échoue
+
       - name: Run integration script
         env:
           SELLSY_CONSUMER_TOKEN: ${{ secrets.SELLSY_CONSUMER_TOKEN }}
@@ -35,6 +38,6 @@ jobs:
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
         run: python main.py
-      
+
       - name: Finalisation
         run: echo "Script terminé avec succès ✅"
