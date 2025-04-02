@@ -1,9 +1,22 @@
 import time
 import json
+import sys
 from datetime import datetime
+
+# Vérification de l'installation du module sellsy-api
+try:
+    import sellsy_api
+    print(f"Sellsy API version: {sellsy_api.__version__}")
+except ImportError:
+    print("Le module sellsy-api n'est pas installé.")
+    sys.exit(1)
+
 from sellsy.client import Client as SellsyClient
 from pyairtable import Table
 from config import *
+
+# Vérification de la version de Python
+print(f"Version de Python utilisée : {sys.version}")
 
 def connect_to_sellsy():
     """Établir la connexion avec l'API Sellsy"""
