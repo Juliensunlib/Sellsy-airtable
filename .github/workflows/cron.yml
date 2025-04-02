@@ -8,6 +8,7 @@ on:
 jobs:
   sync-data:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -17,12 +18,14 @@ jobs:
         with:
           python-version: '3.10'
           cache: 'pip'  # Mise en cache des dépendances pour accélérer
+        id: python-setup
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install sellsy-api  # Installation manuelle pour s'assurer de l'installation du package
+        # Si sellsy-api n'est pas dans requirements.txt, vous pouvez l'installer ici manuellement
+        # pip install sellsy-api  
 
       - name: Vérification des modules installés
         run: |
