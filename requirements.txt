@@ -4,4 +4,4 @@ pandas==2.0.1
 pyairtable==2.0.0
 schedule==1.2.0
 sellsy-api==0.0.2
-sellsy-api
+
