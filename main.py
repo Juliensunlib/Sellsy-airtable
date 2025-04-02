@@ -66,7 +66,7 @@ def format_email_for_airtable(email):
     email_data = {
         "email_id": str(email.get("id", "")),
         "sujet": email.get("subject", ""),
-        "date_envoi": datetime.fromtimestamp(int(email.get("created_date", 0))).isoformat(),
+       "date_envoi": datetime.utcfromtimestamp(int(email.get("created_date", 0))).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "statut": email.get("status", ""),
     }
     
