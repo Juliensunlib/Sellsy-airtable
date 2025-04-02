@@ -1,45 +1,44 @@
 # sellsy_client.py
-import requests
-import hashlib
 import time
 import random
-import string
-import json
+import hashlib
+import hmac
+import base64
 import urllib.parse
+import requests
+import json
 
 class SellsyClient:
-    def __init__(self, consumer_token, consumer_secret, user_token, user_secret, api_url="https://api.sellsy.com/v2/"):
+    """Client personnalisé pour l'API Sellsy v1"""
+    
+    def __init__(self, consumer_token, consumer_secret, user_token, user_secret):
+        """Initialisation du client avec les informations d'authentification"""
         self.consumer_token = consumer_token
         self.consumer_secret = consumer_secret
         self.user_token = user_token
         self.user_secret = user_secret
-        self.api_url = api_url
+        self.api_url = "https://apifeed.sellsy.com/0/"  # URL de l'API v1
     
-    def get_nonce(self, length=10):
-        """Generate a random nonce string."""
-        return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(length))
-    
-    def api(self, method, params=None):
-        """Make an API request to Sellsy."""
-        if params is None:
-            params = {}
-            
-        # Current unix timestamp
-        timestamp = str(int(time.time()))
-        nonce = self.get_nonce()
-        
-        # Prepare the OAuth parameters
-        oauth_params = {
+    def _get_oauth_header(self):
+        """Générer l'en-tête d'authentification OAuth pour l'API Sellsy v1"""
+        oauth_data = {
             'oauth_consumer_key': self.consumer_token,
             'oauth_token': self.user_token,
-            'oauth_nonce': nonce,
-            'oauth_timestamp': timestamp,
+            'oauth_nonce': str(random.getrandbits(64)),
+            'oauth_timestamp': str(int(time.time())),
             'oauth_signature_method': 'PLAINTEXT',
             'oauth_version': '1.0',
             'oauth_signature': f"{self.consumer_secret}&{self.user_secret}"
         }
         
-        # Prepare the request data
+        # Convertir les données OAuth en chaîne de requête
+        authorization_header = "OAuth " + ", ".join([f'{key}="{urllib.parse.quote(value)}"' for key, value in oauth_data.items()])
+        
+        return authorization_header
+    
+    def api(self, method, params):
+        """Envoyer une requête à l'API Sellsy v1"""
+        # Préparer les données de la requête
         request_data = {
             'request': 1,
             'io_mode': 'json',
@@ -49,24 +48,29 @@ class SellsyClient:
             })
         }
         
-        # Make the HTTP request
+        # Définir les en-têtes de la requête
         headers = {
+            'Authorization': self._get_oauth_header(),
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         
-        # Combine OAuth and request data
-        data = {**oauth_params, **request_data}
-        encoded_data = urllib.parse.urlencode(data)
+        # Envoyer la requête POST
+        response = requests.post(
+            self.api_url, 
+            data=request_data, 
+            headers=headers
+        )
         
-        response = requests.post(self.api_url, data=encoded_data, headers=headers)
+        # Vérifier le code de statut
+        response.raise_for_status()
         
-        if response.status_code != 200:
-            raise Exception(f"API request failed with status code {response.status_code}: {response.text}")
+        # Analyser la réponse JSON
+        response_data = response.json()
         
-        result = json.loads(response.text)
+        # Vérifier les erreurs dans la réponse
+        if response_data.get('status') == 'error':
+            error_message = response_data.get('error', 'Unknown API error')
+            raise Exception(f"Sellsy API error: {error_message}")
         
-        # Check for API errors
-        if result.get('status') == 'error':
-            raise Exception(f"API error: {result.get('error')}")
-        
-        return result.get('response')
+        # Retourner les données de la réponse
+        return response_data.get('response', {})
