@@ -47,7 +47,12 @@ def get_all_sellsy_emails(sellsy, days_back=30):
             }
         )
 
-        emails = response.get("response", {}).get("result", [])
+        # Vérification de la réponse
+        if 'response' not in response or 'result' not in response['response']:
+            print("Erreur: la structure de la réponse API est incorrecte.")
+            break
+        
+        emails = response['response'].get('result', [])
         if not emails:
             break  # Arrêter si aucune donnée n'est retournée
 
@@ -97,11 +102,11 @@ def sync_emails_to_airtable():
                 airtable.create(email_data)
                 new_count += 1
                 print(f"Email {email_id} ajouté à Airtable")
+                # Ajouter l'email_id à existing_ids pour ne pas dupliquer dans cette synchronisation
+                existing_ids.add(email_id)
+                time.sleep(1)  # Pause pour respecter la limite de l'API Airtable
         
         print(f"Synchronisation terminée. {new_count} nouveaux emails ajoutés à Airtable.")
         
     except Exception as e:
-        print(f"Erreur lors de la synchronisation: {str(e)}")
-
-if __name__ == "__main__":
-    sync_emails_to_airtable()
+        print(f"Erreur lors de la synchronisation: {e}")
