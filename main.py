@@ -115,6 +115,7 @@ def sync_emails_to_airtable():
                 airtable.create(email_data)
                 new_count += 1
                 print(f"Email {email_id} ajouté à Airtable")
+                
                 # Ajouter l'email_id à existing_ids pour ne pas dupliquer dans cette synchronisation
                 existing_ids.add(email_id)
                 time.sleep(1)  # Pause pour respecter la limite de l'API Airtable
@@ -123,3 +124,7 @@ def sync_emails_to_airtable():
         
     except Exception as e:
         print(f"Erreur lors de la synchronisation: {e}")
+
+# Main execution
+if __name__ == "__main__":
+    sync_emails_to_airtable()
