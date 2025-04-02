@@ -1,10 +1,8 @@
 name: Run Sellsy-Airtable Integration
-
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Toutes les 5 minutes
+    - cron: '*/5 * * * *'  # Toutes les 5 minutes (correction du cron)
   workflow_dispatch:  # Permet l'exécution manuelle
-
 jobs:
   sync-data:
     runs-on: ubuntu-latest
@@ -31,4 +29,5 @@ jobs:
           SELLSY_USER_SECRET: ${{ secrets.SELLSY_USER_SECRET }}
           AIRTABLE_API_KEY: ${{ secrets.AIRTABLE_API_KEY }}
           AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_TABLE_NAME: ${{ secrets.AIRTABLE_TABLE_NAME }}  # Variable ajoutée
         run: python main.py
