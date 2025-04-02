@@ -6,14 +6,13 @@ from datetime import datetime
 # Vérification de l'installation du module sellsy-api
 try:
     import sellsy_api
-    print(f"Sellsy API version: {sellsy_api.__version__}")
 except ImportError:
     print("Le module sellsy-api n'est pas installé.")
     sys.exit(1)
 
 from sellsy.client import Client as SellsyClient
 from pyairtable import Table
-from config import *
+from config import *  # Assurez-vous que ce fichier contient les bonnes informations d'API
 
 # Vérification de la version de Python
 print(f"Version de Python utilisée : {sys.version}")
@@ -115,7 +114,6 @@ def sync_emails_to_airtable():
                 airtable.create(email_data)
                 new_count += 1
                 print(f"Email {email_id} ajouté à Airtable")
-                
                 # Ajouter l'email_id à existing_ids pour ne pas dupliquer dans cette synchronisation
                 existing_ids.add(email_id)
                 time.sleep(1)  # Pause pour respecter la limite de l'API Airtable
@@ -124,7 +122,3 @@ def sync_emails_to_airtable():
         
     except Exception as e:
         print(f"Erreur lors de la synchronisation: {e}")
-
-# Main execution
-if __name__ == "__main__":
-    sync_emails_to_airtable()
