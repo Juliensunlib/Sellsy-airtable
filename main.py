@@ -1,4 +1,3 @@
-# main.py
 import time
 import json
 from datetime import datetime
@@ -23,28 +22,39 @@ def connect_to_airtable():
     airtable = Table(AIRTABLE_API_KEY, AIRTABLE_BASE_ID, AIRTABLE_TABLE_NAME)
     return airtable
 
-def get_sellsy_emails(sellsy, days_back=30):
-    """Récupérer les emails envoyés depuis Sellsy"""
+def get_all_sellsy_emails(sellsy, days_back=30):
+    """Récupérer tous les emails depuis Sellsy avec gestion de la pagination"""
     print(f"Récupération des emails des {days_back} derniers jours...")
-    
-    # Exemple d'appel API Sellsy pour récupérer les emails
-    # Adaptez cette partie selon la structure de l'API Sellsy
-    response = sellsy.api(
-        method="Document.getList",
-        params={
-            "doctype": "email",
-            "pagination": {"nbperpage": 100},
-            "search": {
-                "period": {
-                    "type": "range", 
-                    "start": int(time.time()) - (days_back * 86400),
-                    "end": int(time.time())
+    all_emails = []
+    page_num = 1
+
+    while True:
+        response = sellsy.api(
+            method="Mails.getList",
+            params={
+                "search": {
+                    "period": {
+                        "type": "range", 
+                        "start": int(time.time()) - (days_back * 86400),
+                        "end": int(time.time())
+                    },
+                    "box": "sent"  # Vous pouvez changer cette valeur pour filtrer les boîtes comme "sent", "inbox", etc.
+                },
+                "pagination": {
+                    "nbperpage": 100,
+                    "pagenum": page_num
                 }
             }
-        }
-    )
-    
-    return response.get("result", [])
+        )
+
+        emails = response.get("response", {}).get("result", [])
+        if not emails:
+            break  # Arrêter si aucune donnée n'est retournée
+
+        all_emails.extend(emails)
+        page_num += 1  # Passer à la page suivante
+
+    return all_emails
 
 def format_email_for_airtable(email):
     """Formater les données d'email pour Airtable"""
@@ -65,8 +75,8 @@ def sync_emails_to_airtable():
         sellsy = connect_to_sellsy()
         airtable = connect_to_airtable()
         
-        # Récupération des emails depuis Sellsy
-        emails = get_sellsy_emails(sellsy)
+        # Récupération de tous les emails depuis Sellsy
+        emails = get_all_sellsy_emails(sellsy)
         print(f"Nombre d'emails récupérés: {len(emails)}")
         
         # Récupération des IDs d'emails déjà enregistrés dans Airtable
