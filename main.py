@@ -1,3 +1,4 @@
+# main.py
 import time
 import json
 from datetime import datetime
@@ -36,7 +37,7 @@ def get_sellsy_emails(sellsy, days_back=30):
         method="Mails.getList",
         params={
             "search": {
-                "box": "outbox",  # Pour les emails envoyés
+                # Ne pas spécifier de boîte "outbox", pour récupérer tous les emails envoyés
                 "period": {
                     "type": "range",
                     "start": start_time,
@@ -61,34 +62,32 @@ def get_sellsy_emails(sellsy, days_back=30):
 
 def format_email_for_airtable(email):
     """Formater les données d'email pour Airtable"""
+    # Adapter le format selon les données réelles retournées par l'API
     email_data = {
         "email_id": str(email.get("id", "")),
         "sujet": email.get("subject", ""),
+        "date_envoi": datetime.utcfromtimestamp(int(email.get("created_date", 0))).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "statut": email.get("status", ""),
     }
     
-    # Traiter la date d'envoi (created_date)
-    created_date = email.get("created_date")
-    if created_date:
-        try:
-            created_timestamp = int(created_date)
-            # Formater la date pour Airtable (format attendu: ISO 8601)
-            email_data["date_envoi"] = datetime.utcfromtimestamp(created_timestamp).strftime("%Y-%m-%dT%H:%M:%SZ")
-        except ValueError:
-            print(f"⚠️ Erreur de conversion de la date pour l'email {email.get('id')}: {created_date}")
-            email_data["date_envoi"] = None  # Mettre None pour éviter l'erreur Airtable
-
     # Traiter les destinataires (qui peuvent être un tableau ou une chaîne JSON)
     recipients = email.get("recipients", "")
     if isinstance(recipients, str):
         try:
+            # Si c'est une chaîne JSON, essayez de la parser
             recipients_data = json.loads(recipients.replace("'", "\""))
-            recipients_list = [r["email"] for r in recipients_data if isinstance(r, dict) and "email" in r]
+            recipients_list = []
+            if isinstance(recipients_data, list):
+                for recipient in recipients_data:
+                    if isinstance(recipient, dict) and "email" in recipient:
+                        recipients_list.append(recipient["email"])
             email_data["destinataire"] = ", ".join(recipients_list)
-        except json.JSONDecodeError:
+        except:
             email_data["destinataire"] = recipients
     elif isinstance(recipients, list):
-        email_data["destinataire"] = ", ".join(r.get("email", "") for r in recipients if isinstance(r, dict))
-
+        recipients_list = [r.get("email", "") for r in recipients if isinstance(r, dict)]
+        email_data["destinataire"] = ", ".join(recipients_list)
+    
     # Traiter le contenu du message
     message = email.get("message", "")
     if message:
