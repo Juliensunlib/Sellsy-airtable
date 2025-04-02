@@ -30,6 +30,7 @@ jobs:
       - name: Vérification des modules installés
         run: |
           pip list
+          python -c "import sys; print('Python Path:', sys.path)"
         continue-on-error: true  # Continue même si cette étape échoue
 
       - name: Run integration script
